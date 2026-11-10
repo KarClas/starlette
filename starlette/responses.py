@@ -28,7 +28,7 @@ from starlette.types import Message, Receive, Scope, Send
 
 
 class Response:
-    media_type = None
+    media_type: str | None = None
     charset = "utf-8"
 
     def __init__(
@@ -49,7 +49,9 @@ class Response:
     def render(self, content: Any) -> bytes | memoryview:
         if content is None:
             return b""
-        if isinstance(content, bytes | memoryview):
+        if isinstance(content, memoryview):
+            return content.cast("B") if content.c_contiguous else content.tobytes()
+        if isinstance(content, bytes):
             return content
         return content.encode(self.charset)  # type: ignore
 
@@ -251,7 +253,9 @@ class StreamingResponse(Response):
     async def stream_response(self, send: Send) -> None:
         await send({"type": "http.response.start", "status": self.status_code, "headers": self.raw_headers})
         async for chunk in self.body_iterator:
-            if not isinstance(chunk, bytes | memoryview):
+            if isinstance(chunk, memoryview):
+                chunk = chunk.cast("B") if chunk.c_contiguous else chunk.tobytes()
+            elif not isinstance(chunk, bytes):
                 chunk = chunk.encode(self.charset)
             await send({"type": "http.response.body", "body": chunk, "more_body": True})
 
@@ -368,6 +372,7 @@ class FileResponse(Response):
         if (
             self.status_code != 200
             or http_range is None
+            or (scope_type == "http" and scope["method"].upper() not in ("GET", "HEAD"))
             or (http_if_range is not None and not self._should_use_range(http_if_range))
         ):
             send_file = partial(self._handle_simple, send, send_header_only, send_pathsend)

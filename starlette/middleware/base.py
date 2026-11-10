@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable, Mapping, MutableMapping
+from contextlib import aclosing
 from typing import Any, TypeVar
 
 import anyio
@@ -29,7 +30,6 @@ class _CachedRequest(Request):
         super().__init__(scope, receive, send)
         self._wrapped_rcv_disconnected = False
         self._wrapped_rcv_consumed = False
-        self._wrapped_rc_stream = self.stream()
 
     async def wrapped_receive(self) -> Message:
         # wrapped_rcv state 1: disconnected
@@ -80,8 +80,8 @@ class _CachedRequest(Request):
         else:
             # body() was never called and stream() wasn't consumed
             try:
-                stream = self.stream()
-                chunk = await stream.__anext__()
+                async with aclosing(self.stream()) as stream:
+                    chunk = await stream.__anext__()
                 self._wrapped_rcv_consumed = self._stream_consumed
                 return {
                     "type": "http.request",
@@ -194,7 +194,7 @@ class BaseHTTPMiddleware:
                         break
 
             response = _StreamingResponse(status_code=message["status"], content=body_stream(), info=info)
-            response.raw_headers = message["headers"]
+            response.raw_headers = message.get("headers", [])
             return response
 
         send_stream, recv_stream = anyio.create_memory_object_stream[Message]()

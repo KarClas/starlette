@@ -755,11 +755,61 @@ def test_response_memoryview(test_client_factory: TestClientFactory) -> None:
     assert response.content == b"\xc0"
 
 
+def test_response_typed_memoryview(test_client_factory: TestClientFactory) -> None:
+    app = Response(content=memoryview(b"01234567").cast("I"))
+    client: TestClient = test_client_factory(app)
+    response = client.get("/")
+    assert response.content == b"01234567"
+    assert response.headers["content-length"] == "8"
+
+
+def test_response_non_contiguous_memoryview(test_client_factory: TestClientFactory) -> None:
+    app = Response(content=memoryview(b"01234567")[::2])
+    client: TestClient = test_client_factory(app)
+    response = client.get("/")
+    assert response.content == b"0246"
+    assert response.headers["content-length"] == "4"
+
+
 def test_streaming_response_memoryview(test_client_factory: TestClientFactory) -> None:
     app = StreamingResponse(content=iter([memoryview(b"\xc0"), memoryview(b"\xf5")]))
     client: TestClient = test_client_factory(app)
     response = client.get("/")
     assert response.content == b"\xc0\xf5"
+
+
+@pytest.mark.anyio
+async def test_streaming_response_typed_memoryview() -> None:
+    bodies: list[bytes | memoryview] = []
+
+    async def receive() -> Message:
+        await anyio.sleep_forever()
+        raise NotImplementedError
+
+    async def send(message: Message) -> None:
+        if message["type"] == "http.response.body" and message["more_body"]:
+            bodies.append(message["body"])
+
+    await StreamingResponse(iter([memoryview(b"01234567").cast("I")]))({"type": "http"}, receive, send)
+    assert len(bodies[0]) == 8
+    assert bytes(bodies[0]) == b"01234567"
+
+
+@pytest.mark.anyio
+async def test_streaming_response_non_contiguous_memoryview() -> None:
+    bodies: list[bytes | memoryview] = []
+
+    async def receive() -> Message:
+        await anyio.sleep_forever()
+        raise NotImplementedError
+
+    async def send(message: Message) -> None:
+        if message["type"] == "http.response.body" and message["more_body"]:
+            bodies.append(message["body"])
+
+    await StreamingResponse(iter([memoryview(b"01234567")[::2]]))({"type": "http"}, receive, send)
+    assert memoryview(bodies[0]).contiguous
+    assert bytes(bodies[0]) == b"0246"
 
 
 @pytest.mark.anyio
@@ -904,6 +954,14 @@ def test_file_response_ignores_range_for_non_success_status(
     assert "content-range" not in head_response.headers
     assert head_response.headers["content-length"] == str(len(README.encode("utf8")))
     assert head_response.content == b""
+
+
+def test_file_response_ignores_range_for_non_get_methods(file_response_client: TestClient) -> None:
+    response = file_response_client.post("/", headers={"Range": "bytes=0-100"})
+    assert response.status_code == 200
+    assert "content-range" not in response.headers
+    assert response.headers["content-length"] == str(len(README.encode("utf8")))
+    assert response.text == README
 
 
 def test_file_response_head(file_response_client: TestClient) -> None:

@@ -2,6 +2,70 @@
 toc_depth: 2
 ---
 
+## 1.10.0 (October 24, 2026)
+
+#### Changed
+
+* Compare multidicts such as `FormData` and `QueryParams` by key while keeping the order of values under a repeated key, so `FormData` with repeated uploads no longer raises `TypeError`. `QueryParams("a=1&a=2")` and `QueryParams("a=2&a=1")` are no longer equal [#3619](https://github.com/Kludex/starlette/pull/3619).
+* Build URL-encoded form fields in the parser callbacks, lowering memory and CPU usage for forms with many fields [#3724](https://github.com/Kludex/starlette/pull/3724).
+* Compare `Match` members by identity during routing [#3665](https://github.com/Kludex/starlette/pull/3665) and [#3722](https://github.com/Kludex/starlette/pull/3722).
+
+#### Deprecated
+
+* Deprecate `starlette.formparsers.FormMessage`, which is no longer used [#3724](https://github.com/Kludex/starlette/pull/3724).
+
+#### Fixed
+
+* Parse the last URL-encoded form field when the request stream ends without an empty chunk [#3599](https://github.com/Kludex/starlette/pull/3599).
+* Keep path parameter values that look like another placeholder in `url_path_for()` [#3725](https://github.com/Kludex/starlette/pull/3725).
+* Default omitted `http.response.start` headers in `BaseHTTPMiddleware`, `GZipMiddleware` and `SessionMiddleware` instead of raising `KeyError` [#3721](https://github.com/Kludex/starlette/pull/3721).
+* Clear the traceback of handled exceptions, so reused exception instances no longer keep per-request objects alive [#3205](https://github.com/Kludex/starlette/pull/3205).
+* Strip only one pair of matching outer quotes from `Config` env file values [#3720](https://github.com/Kludex/starlette/pull/3720).
+* Strip `root_path` from `PATH_INFO` only at a path segment boundary in `WSGIMiddleware` [#3718](https://github.com/Kludex/starlette/pull/3718).
+* Report NaN and infinity correctly in `FloatConvertor.to_string()` [#3716](https://github.com/Kludex/starlette/pull/3716).
+* Ignore `Range` on requests other than `GET` and `HEAD` in `FileResponse` [#3679](https://github.com/Kludex/starlette/pull/3679).
+
+## 1.9.0 (October 18, 2026)
+
+#### Changed
+
+* Stream `TestClient` response bodies, so `client.stream()` returns before the application finishes. Closing an unfinished streamed response now cancels the application [#3491](https://github.com/Kludex/starlette/pull/3491).
+
+#### Fixed
+
+* Percent-encode `?`, `#`, `\` and a leading `//` in the request path when building `request.url`, and `\` and a leading `//` in `url_path_for` [#3671](https://github.com/Kludex/starlette/pull/3671).
+* Use the byte length for `Content-Length` when the response body is a typed or multidimensional `memoryview` [#3622](https://github.com/Kludex/starlette/pull/3622).
+* Include `HEAD` in the `Allow` header of `HTTPEndpoint` 405 responses when `GET` is defined [#3585](https://github.com/Kludex/starlette/pull/3585).
+* Match host names case-insensitively in `Host` routing and `TrustedHostMiddleware` [#3542](https://github.com/Kludex/starlette/pull/3542).
+* Preserve every existing `Vary` header in `MutableHeaders.add_vary_header()`, used by `GZipMiddleware` and `SessionMiddleware` [#3675](https://github.com/Kludex/starlette/pull/3675).
+
+## 1.8.0 (October 13, 2026)
+
+This release drops Python 3.10 support and adds HTTP 103 Early Hints.
+
+#### Added
+
+* Add `Request.send_early_hints()` for HTTP 103 Early Hints through the ASGI `http.response.early_hint` extension [#3435](https://github.com/Kludex/starlette/pull/3435).
+
+#### Changed
+
+* Require Python 3.11 or later, dropping support for Python 3.10 [#3592](https://github.com/Kludex/starlette/pull/3592).
+* Exclude native gRPC media types (`application/grpc` and `application/grpc+...`) from `GZipMiddleware` compression by default [#3565](https://github.com/Kludex/starlette/pull/3565).
+* Send `http.response.start` immediately in `GZipMiddleware` for responses with an existing `Content-Encoding`, status `206`, or an excluded content type, instead of waiting for the first body chunk [#3631](https://github.com/Kludex/starlette/pull/3631).
+* Resolve the multipart charset once per request instead of once per field [#3618](https://github.com/Kludex/starlette/pull/3618).
+
+#### Fixed
+
+* Preserve response trailers through `GZipMiddleware` [#3565](https://github.com/Kludex/starlette/pull/3565).
+* Stop `FileResponse` transfers when the client disconnects [#3523](https://github.com/Kludex/starlette/pull/3523).
+* Stop multipart range responses when the file ends before a range is complete, instead of looping forever [#3583](https://github.com/Kludex/starlette/pull/3583).
+* Ignore `Range` when `If-Range` contains a weak ETag [#3567](https://github.com/Kludex/starlette/pull/3567).
+* Include `Allow: GET, HEAD` in `StaticFiles` `405` responses [#3640](https://github.com/Kludex/starlette/pull/3640).
+* Close `Request.stream()` generators deterministically, avoiding "Exception ignored" errors with stacked `BaseHTTPMiddleware` [#3628](https://github.com/Kludex/starlette/pull/3628).
+* Add `Vary: Cookie` when `Session.pop()` removes an existing key [#3186](https://github.com/Kludex/starlette/pull/3186).
+* Emit `Max-Age=0` on the session cookie when `SessionMiddleware` uses `max_age=0` [#3651](https://github.com/Kludex/starlette/pull/3651).
+* Bracket IPv6 hostnames in `URL.replace()` [#3617](https://github.com/Kludex/starlette/pull/3617).
+
 ## 1.7.0 (September 23, 2026)
 
 This release adds experimental OpenTelemetry tracing and requires AnyIO 4.
